@@ -1,0 +1,133 @@
+create database supplier_104;
+use supplier_104;
+CREATE TABLE supplier (
+    sid VARCHAR(20),
+    sname VARCHAR(20),
+    city VARCHAR(20),
+    PRIMARY KEY (sid)
+);
+ 
+DESC supplier;
+
+CREATE TABLE parts (
+    pid VARCHAR(20),
+    pname VARCHAR(20),
+    color VARCHAR(20),
+    PRIMARY KEY (pid)
+);
+
+CREATE TABLE catlog (
+    sid VARCHAR(20),
+    pid VARCHAR(20),
+    cost VARCHAR(20),
+    PRIMARY KEY (sid , pid),
+    FOREIGN KEY (pid)
+        REFERENCES parts (pid),
+    FOREIGN KEY (sid)
+        REFERENCES supplier (sid)
+);
+insert into supplier values(10001,'acme widget','bangalore');
+insert into supplier values(10002,'johns','kolkata');
+insert into supplier values(10003,'vimal','mumbai');
+insert into supplier values(10004,'reliance','delhi');
+
+insert into parts values(20001,'book','red');
+insert into parts values(20002,'pen','red');
+insert into parts values(20003,'pencil','green');
+insert into parts values(20004,'mobile','green');
+insert into parts values(20005,'charger','black');
+
+insert into catlog values(10001,20001,10);
+insert into catlog values(10001,20002,10);
+insert into catlog values(10001,20003,30);
+insert into catlog values(10001,20004,10);
+insert into catlog values(10001,20005,10);
+insert into catlog values(10002,20001,10);
+insert into catlog values(10002,20002,20);
+insert into catlog values(10003,20003,30);
+insert into catlog values(10004,20003,40);
+
+-- 1
+SELECT 
+    pname
+FROM
+    parts
+WHERE
+    pid IN (SELECT 
+            pid
+        FROM
+            catlog);
+
+-- 2 
+SELECT 
+    sname
+FROM
+    (SELECT 
+        c.sname, COUNT(DISTINCT a.pid) AS cnt
+    FROM
+        catlog a
+    LEFT JOIN parts b ON a.pid = b.pid
+    LEFT JOIN supplier c ON c.sid = a.sid
+    GROUP BY 1) a
+WHERE
+    cnt = (SELECT 
+            COUNT(DISTINCT a.pid)
+        FROM
+            catlog a
+                LEFT JOIN
+            parts b ON a.pid = b.pid);
+
+
+
+-- 3
+SELECT DISTINCT
+    sname
+FROM
+    (SELECT 
+        c.sname, b.pname, b.color
+    FROM
+        catlog a
+    LEFT JOIN parts b ON a.pid = b.pid
+    LEFT JOIN supplier c ON c.sid = a.sid) a
+WHERE
+    color = 'red';
+
+-- 4 
+SELECT 
+    A.pname
+FROM
+    parts A
+        LEFT JOIN
+    catlog B ON A.pid = B.pid
+        LEFT JOIN
+    supplier C ON B.sid = C.sid
+WHERE
+    LOWER(c.sname) = 'acme widget'
+        AND a.pname NOT IN (SELECT 
+            A.pname
+        FROM
+            parts A
+                LEFT JOIN
+            catlog B ON A.pid = B.pid
+                LEFT JOIN
+            supplier C ON B.sid = C.sid
+        WHERE
+            LOWER(c.sname) <> 'acme widget');
+
+-- 5
+
+select a.sid from
+(select A.pid,C.sid,cost from parts A  
+left join catlog B on A.pid=B.pid
+left join supplier C on B.sid=C.sid )A
+left join
+(select A.pid,avg(cost) as cost from parts A
+left join catlog B on A.pid=B.pid
+left join supplier C on B.sid=C.sid where cost is not null group by 1 )B on A.pid=B.pid
+where a.cost>b.cost;
+
+-- 6 
+select pid,sname from
+(select A.pid,C.sname,cost,rank() over(partition by pid order by cost desc) as rnk from parts A
+left join catlog B on A.pid=B.pid
+left join supplier C on B.sid=C.sid)A where rnk=1 and cost is not null order by sname;
